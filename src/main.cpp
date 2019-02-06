@@ -9,6 +9,8 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::string;
 using std::vector;
+using std::cout;
+using std::endl;
 
 // for convenience
 using json = nlohmann::json;
@@ -41,7 +43,7 @@ int main() {
   vector<VectorXd> ground_truth;
 
   h.onMessage([&ukf,&tools,&estimations,&ground_truth]
-              (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, 
+              (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -53,14 +55,14 @@ int main() {
         auto j = json::parse(s);
 
         string event = j[0].get<string>();
-        
+
         if (event == "telemetry") {
           // j[1] is the data JSON object
           string sensor_measurement = j[1]["sensor_measurement"];
-          
+
           MeasurementPackage meas_package;
           std::istringstream iss(sensor_measurement);
-          
+
           long long timestamp;
 
           // reads first element from the current line
@@ -102,15 +104,15 @@ int main() {
 
           VectorXd gt_values(4);
           gt_values(0) = x_gt;
-          gt_values(1) = y_gt; 
+          gt_values(1) = y_gt;
           gt_values(2) = vx_gt;
           gt_values(3) = vy_gt;
           ground_truth.push_back(gt_values);
-          
-          // Call ProcessMeasurement(meas_package) for Kalman filter
-          ukf.ProcessMeasurement(meas_package);       
 
-          // Push the current estimated x,y positon from the Kalman filter's 
+          // Call ProcessMeasurement(meas_package) for Kalman filter
+          ukf.ProcessMeasurement(meas_package);
+
+          // Push the current estimated x,y positon from the Kalman filter's
           //   state vector
 
           VectorXd estimate(4);
@@ -122,32 +124,36 @@ int main() {
 
           double v1 = cos(yaw)*v;
           double v2 = sin(yaw)*v;
-
+          cout << "finished 1" << endl;
           estimate(0) = p_x;
           estimate(1) = p_y;
           estimate(2) = v1;
           estimate(3) = v2;
-        
+
           estimations.push_back(estimate);
-
+          cout << "finished 2" << endl;
           VectorXd RMSE = tools.CalculateRMSE(estimations, ground_truth);
-
+          cout << "finished CalculateRMSE" << endl;
           json msgJson;
           msgJson["estimate_x"] = p_x;
           msgJson["estimate_y"] = p_y;
+          cout << "finished estimatexy" << endl;
           msgJson["rmse_x"] =  RMSE(0);
           msgJson["rmse_y"] =  RMSE(1);
           msgJson["rmse_vx"] = RMSE(2);
           msgJson["rmse_vy"] = RMSE(3);
+          cout << "finished estimate_marker" << endl;
           auto msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
           // std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-
+          cout << "finished send message" << endl;
         }  // end "telemetry" if
 
       } else {
+        //cout << "start manual message" << endl;
         string msg = "42[\"manual\",{}]";
         ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+        //cout << "finish manual message" << endl;
       }
     }  // end websocket message if
 
@@ -157,7 +163,7 @@ int main() {
     std::cout << "Connected!!!" << std::endl;
   });
 
-  h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, 
+  h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code,
                          char *message, size_t length) {
     ws.close();
     std::cout << "Disconnected" << std::endl;
@@ -170,6 +176,7 @@ int main() {
     std::cerr << "Failed to listen to port" << std::endl;
     return -1;
   }
-  
+  cout << "start h.run" << endl;
   h.run();
+  cout << "finished h.run" << endl;
 }
